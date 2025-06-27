@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plataforma de Pesquisa de Impacto Ético (IA)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* cinza claro de base */
+            background-image: linear-gradient(to bottom, #fde9f0, #f3f4f6); /* gradiente rosa mais vivo */
+        }
+        .card {
+            background-color: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 15px -2px rgb(0 0 0 / 0.05);
+            transition: all 0.3s ease;
+        }
+        .pillar-card-clickable {
+            cursor: pointer;
+        }
+        .pillar-card-clickable:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px -5px rgb(0 0 0 / 0.1);
+        }
+        .score-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 24px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 12px;
+            text-align: left;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+        }
+        #resultsContainer {
+             transition: opacity 0.5s ease-in-out;
+        }
+        .kpi-data-point {
+            display: flex;
+            align-items: center;
+            font-size: 0.8rem;
+        }
+        .kpi-data-point span {
+            min-width: 110px;
+        }
+        .kpi-bar {
+            height: 8px;
+            border-radius: 4px;
+        }
+        .consistency-icon {
+            width: 20px;
+            height: 20px;
+        }
+        .font-logo {
+             font-family: 'Orbitron', sans-serif;
+             letter-spacing: 1px;
+        }
+        .main-title {
+            color: #A23E62; /* Tom de rosa mais escuro e vivo */
+        }
+        .primary-button {
+            background-color: #E5739D; /* Rosa vibrante principal */
+            color: white;
+        }
+        .primary-button:hover {
+            background-color: #D4608A; /* Rosa um pouco mais escuro para hover */
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Modal para Detalhes do Pilar -->
+    <div id="pillarModal" class="modal">
+        <div class="modal-content">
+            <span id="modalCloseButton" class="close-button">&times;</span>
+            <div id="pillarModalBody"></div>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold main-title font-logo">Plataforma de Impacto Ético</h1>
+            <p class="text-lg text-gray-600 mt-2">Descreva um projeto para analisar os seus impactos e explorar alternativas com IA.</p>
+        </header>
+
+        <!-- Formulário de Pesquisa -->
+        <div id="searchSection" class="card p-6 max-w-2xl mx-auto mb-8">
+            <h2 class="text-xl font-bold main-title mb-4">1. Descreva o Projeto Potencial</h2>
+            <div>
+                <label for="searchInput" class="block text-sm font-medium text-gray-700">Ex: "Mineradora de lítio no sertão da Paraíba" ou "Parque eólico offshore na costa do Ceará"</label>
+                <input type="text" id="searchInput" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#E5739D] focus:border-[#E5739D] transition" placeholder="Descreva o tipo de projeto e a localização...">
+                 <div id="searchError" class="text-red-500 text-sm mt-2" style="display: none;"></div>
+            </div>
+            <div class="mt-6 text-center">
+                <button id="searchButton" class="primary-button font-bold py-3 px-8 rounded-lg transition-colors">Pesquisar e Analisar</button>
+            </div>
+        </div>
+
+        <!-- Container para os resultados, inicialmente oculto -->
+        <div id="resultsContainer" class="opacity-0" style="display: none;">
+            <div class="text-center my-6">
+                 <h2 id="resultsTitle" class="text-2xl font-bold main-title">Análise de Impacto para: ...</h2>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-1 space-y-8">
+                    <div class="card p-6 text-center">
+                        <h2 class="text-lg font-semibold text-gray-500 mb-2">Pontuação de Saúde Ética Geral</h2>
+                        <p id="overallScore" class="text-6xl font-bold main-title">0</p>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5 mt-4">
+                            <div id="overallScoreBar" class="bg-[#E5739D] h-2.5 rounded-full score-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="card p-6 h-80">
+                        <h2 class="text-lg font-semibold main-title text-center mb-4">Balanço dos Pilares Éticos</h2>
+                        <div class="relative h-full w-full">
+                           <canvas id="pillarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div id="pillarsContainer" class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8"></div>
+            </div>
+
+            <div class="mt-12 card p-6">
+                <h2 class="text-xl font-bold main-title mb-4">2. Simule Ações de Melhoria</h2>
+                <div id="scenariosContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+            </div>
+
+            <div id="aiAlternatives" class="mt-12 card p-6 bg-[#fde9f0] border border-[#f5e3e9]">
+                <h2 class="text-xl font-bold main-title mb-4">3. Explore Alternativas Geradas pela IA</h2>
+                <div id="alternativesContainer" class="space-y-4"></div>
+            </div>
+            
+             <div class="mt-8 text-center">
+                <button id="resetButton" class="bg-gray-500 text-white font-bold py-3 px-8 rounded-lg hover:bg-gray-600 transition-colors">Analisar Outro Projeto</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DATABASE SIMULADO ---
+            const projectTypes = {
+                mineradora: { name: "Mineradora", baseImpact: { environmental: -30, dei: -5, worker: -10, community: -20 } },
+                fabrica_textil: { name: "Fábrica Têxtil", baseImpact: { environmental: -15, dei: 5, worker: -5, community: 10 } },
+                parque_eolico: { name: "Parque Eólico", baseImpact: { environmental: 25, dei: 0, worker: 5, community: -5 } },
+                data_center: { name: "Data Center", baseImpact: { environmental: -25, dei: 10, worker: 10, community: 5 } }
+            };
+
+            const locationData = {
+                amazonia: { name: "Amazônia", baseScores: { environmental: 20, dei: 40, worker: 50, community: 30 }, aiSuggestion: "Sugerimos o Sudeste, com menor vulnerabilidade ambiental." },
+                nordeste: { name: "Nordeste", baseScores: { environmental: 60, dei: 30, worker: 40, community: 50 }, aiSuggestion: "Sugerimos o Sudeste para melhor infraestrutura." },
+                sudeste: { name: "Sudeste", baseScores: { environmental: 50, dei: 60, worker: 70, community: 60 }, aiSuggestion: "A localização é robusta. Focar em políticas internas." }
+            };
+            
+            const improvementActions = {
+                reflorestamento: { label: "Investir em Reflorestamento", impact: { environmental: 25, community: 10 }, relevant_for: ['mineradora'] },
+                seguranca_barragem: { label: "Melhorar Segurança da Barragem", impact: { worker: 20, community: 30, environmental: 5 }, relevant_for: ['mineradora'] },
+                tratamento_efluentes: { label: "Melhorar Tratamento de Efluentes", impact: { environmental: 30, community: 10 }, relevant_for: ['fabrica_textil', 'mineradora'] },
+                equidade_salarial: { label: "Programa de Equidade Salarial", impact: { dei: 30, worker: 15 }, relevant_for: ['all'] },
+                creche_trabalhadores: { label: "Oferecer Creche para Trabalhadores", impact: { worker: 25, dei: 10, community: 5 }, relevant_for: ['all'] },
+                energia_renovavel: { label: "Contratar 100% Energia Renovável", impact: { environmental: 40 }, relevant_for: ['data_center', 'fabrica_textil']},
+            };
+
+            const pillarConfig = {
+                environmental: { 
+                    title: "Sustentabilidade Ambiental", icon: '🌍', hex: '#65A30D', // Verde-limão
+                    kpis: {
+                        emissions: { label: "Emissões de GEE", lower_is_better: true },
+                        water: { label: "Consumo de Água", lower_is_better: true },
+                        circularity: { label: "Taxa de Circularidade", lower_is_better: false }
+                    }
+                },
+                dei: {
+                    title: "Diversidade & Inclusão", icon: '🧑‍🤝‍🧑', hex: '#E5739D', // Rosa Vibrante Principal
+                    kpis: {
+                        leadership: { label: "% Liderança Diversa", lower_is_better: false },
+                        pay_gap: { label: "Disparidade Salarial", lower_is_better: true },
+                        inclusion_score: { label: "Pontuação de Inclusão", lower_is_better: false }
+                    }
+                 },
+                worker: { 
+                    title: "Bem-estar do Trabalhador", icon: '👷', hex: '#D4608A', // Rosa mais escuro
+                    kpis: {
+                        safety: { label: "Taxa de Lesões (LTIFR)", lower_is_better: true },
+                        turnover: { label: "Taxa de Rotatividade", lower_is_better: true },
+                        living_wage: { label: "Rácio Salário Digno", lower_is_better: false }
+                    }
+                },
+                community: {
+                    title: "Impacto Comunitário", icon: '🏘️', hex: '#A23E62', // Ouro rosa escuro e vivo
+                    kpis: {
+                        local_jobs: { label: "Criação de Emprego Local", lower_is_better: false },
+                        displacement: { label: "Pessoas Deslocadas", lower_is_better: true },
+                        trust_score: { label: "Índice de Confiança", lower_is_better: false }
+                    }
+                }
+            };
+
+            let chart;
+            let currentProjectState = {};
+
+            // --- CORE LOGIC ---
+            function parseSearchQuery(query) {
+                const lowerQuery = query.toLowerCase();
+                let projectType = null, location = null;
+                if (lowerQuery.includes('minera')) projectType = 'mineradora';
+                else if (lowerQuery.includes('têxtil')) projectType = 'fabrica_textil';
+                else if (lowerQuery.includes('eólic')) projectType = 'parque_eolico';
+                else if (lowerQuery.includes('data center')) projectType = 'data_center';
+                if (lowerQuery.includes('amazôn')) location = 'amazonia';
+                else if (lowerQuery.includes('nordeste') || lowerQuery.includes('ceará') || lowerQuery.includes('sertão')) location = 'nordeste';
+                else if (lowerQuery.includes('sudeste') || lowerQuery.includes('rio doce')) location = 'sudeste';
+                return { projectType, location };
+            }
+
+            function generateBaseScores(projectType, location) {
+                const type = projectTypes[projectType];
+                const loc = locationData[location];
+                let initialScores = {};
+                for (const pillar in loc.baseScores) {
+                    initialScores[pillar] = loc.baseScores[pillar] + type.baseImpact[pillar];
+                }
+                return initialScores;
+            }
+
+            function calculateScores() {
+                let pillarScores = {};
+                const scenarioImpacts = getActiveScenarioImpacts();
+                for (const pillarKey in pillarConfig) {
+                    let basePillarScore = currentProjectState.baseScores[pillarKey] || 50;
+                    if (scenarioImpacts[pillarKey]) {
+                        basePillarScore += scenarioImpacts[pillarKey];
+                    }
+                    pillarScores[pillarKey] = Math.max(0, Math.min(100, Math.round(basePillarScore)));
+                }
+                const overallScore = Math.round(Object.values(pillarScores).reduce((a, b) => a + b, 0) / 4);
+                return { pillarScores, overallScore };
+            }
+            
+            function getActiveScenarioImpacts() {
+                const impacts = {};
+                document.querySelectorAll('.scenario-checkbox:checked').forEach(checkbox => {
+                    const policyKey = checkbox.id.replace('scenario_', '');
+                    const policy = improvementActions[policyKey];
+                    if(policy) {
+                        for (const pillar in policy.impact) {
+                            if (!impacts[pillar]) impacts[pillar] = 0;
+                            impacts[pillar] += policy.impact[pillar];
+                        }
+                    }
+                });
+                return impacts;
+            }
+
+            function generateAlternatives(scores) {
+                const alternatives = [];
+                if (currentProjectState.location !== 'sudeste') {
+                     alternatives.push({ type: 'location', title: 'Alternativa de Localização: Mover para o Sudeste', description: locationData[currentProjectState.location].aiSuggestion, value: 'sudeste' });
+                }
+                const sortedPillars = Object.keys(scores).sort((a, b) => scores[a] - scores[b]);
+                const weakestPillar = sortedPillars[0];
+                for(const key in improvementActions) {
+                    const policy = improvementActions[key];
+                     if (policy.impact[weakestPillar] && (policy.relevant_for.includes(currentProjectState.type) || policy.relevant_for.includes('all'))) {
+                         if(!document.getElementById(`scenario_${key}`)?.checked) {
+                             alternatives.push({ type: 'policy', title: `Alternativa de Abordagem: ${policy.label}`, description: `Para melhorar a sua pontuação mais baixa (${pillarConfig[weakestPillar].title}), a IA sugere implementar esta política.`, value: key });
+                             break; 
+                         }
+                     }
+                }
+                 return alternatives;
+            }
+            
+            function generatePillarSummary(pillarScore, kpiData) {
+                 let overallStatus = pillarScore > 75 ? 'forte' : pillarScore > 50 ? 'moderada' : 'fraca';
+                 let summary = `Com uma pontuação de <strong>${pillarScore}/100</strong>, o desempenho deste pilar é considerado <strong>${overallStatus}</strong>. A análise detalhada dos KPIs revela os seguintes pontos:`;
+                 
+                 summary += '<ul class="list-disc list-inside mt-2 space-y-2">';
+
+                 for (const key in kpiData) {
+                     const kpi = kpiData[key];
+                     const performanceValue = kpi.lower_is_better ? (100 - kpi.avg) : kpi.avg;
+                     let performanceDesc = performanceValue > 70 ? 'bom' : performanceValue > 40 ? 'mediano' : 'preocupante';
+                     let consistencyDesc = kpi.consistency !== 'elevada' ? `A consistência dos dados para este indicador é <strong>${kpi.consistency}</strong>, o que exige cautela na interpretação.` : '';
+
+                     summary += `<li><strong>${kpi.label}:</strong> Apresenta um desempenho <strong>${performanceDesc}</strong>. ${consistencyDesc}</li>`;
+                 }
+                 
+                 summary += '</ul>';
+
+                 if (overallStatus === 'fraca') {
+                     summary += '<p class="mt-4"><strong>Recomendação:</strong> É crucial focar em ações de melhoria para este pilar, especialmente nos indicadores com desempenho preocupante e baixa consistência de dados.</p>';
+                 } else if (overallStatus === 'moderada') {
+                      summary += '<p class="mt-4"><strong>Recomendação:</strong> Existem oportunidades de melhoria. Ações direcionadas aos indicadores com desempenho mediano podem elevar significativamente a pontuação deste pilar.</p>';
+                 } else {
+                      summary += '<p class="mt-4"><strong>Recomendação:</strong> O desempenho é forte. Aconselha-se manter as boas práticas e monitorizar continuamente os indicadores para garantir a sustentabilidade dos resultados.</p>';
+                 }
+                 
+                 return summary;
+            }
+
+            // --- UI & RENDERING ---
+            function updateAllUI() {
+                const { pillarScores, overallScore } = calculateScores();
+                document.getElementById('overallScore').textContent = overallScore;
+                document.getElementById('overallScoreBar').style.width = `${overallScore}%`;
+
+                for (const pillarKey in pillarScores) {
+                    const score = pillarScores[pillarKey];
+                    const config = pillarConfig[pillarKey];
+                    const scoreElement = document.getElementById(`${pillarKey}_score`);
+                    const barElement = document.getElementById(`${pillarKey}_score_bar`);
+                    if(scoreElement) scoreElement.textContent = score;
+                    if(barElement) {
+                        barElement.style.backgroundColor = config.hex;
+                        barElement.style.width = `${score}%`;
+                    }
+                    const scoreColorElement = document.querySelector(`[data-pillar-key="${pillarKey}"] .text-3xl`);
+                    if(scoreColorElement) scoreColorElement.style.color = config.hex;
+
+                }
+
+                if (chart) {
+                    chart.data.datasets[0].data = Object.values(pillarScores);
+                    chart.update();
+                }
+            }
+            
+            function renderAlternatives(alternatives) {
+                const container = document.getElementById('alternativesContainer');
+                container.innerHTML = '';
+                if (alternatives.length === 0) {
+                    container.innerHTML = `<p class="text-gray-600 text-center">Nenhuma alternativa óbvia gerada.</p>`;
+                    return;
+                }
+                alternatives.forEach(alt => {
+                    container.innerHTML += `<div class="p-4 bg-white rounded-lg shadow flex items-center justify-between"><div><h4 class="font-bold main-title">${alt.title}</h4><p class="text-sm text-gray-600">${alt.description}</p></div><button data-type="${alt.type}" data-value="${alt.value}" class="simulate-alt-button bg-[#fde9f0] text-[#A23E62] font-semibold py-2 px-4 rounded-lg hover:bg-[#fbdde8] transition-colors text-sm">Simular</button></div>`;
+                });
+            }
+            
+            function renderPillarCards() {
+                 const pillarsContainer = document.getElementById('pillarsContainer');
+                 pillarsContainer.innerHTML = '';
+                 for (const pillarKey in pillarConfig) {
+                    const config = pillarConfig[pillarKey];
+                    pillarsContainer.innerHTML += `
+                        <div class="card p-6 pillar-card-clickable" data-pillar-key="${pillarKey}">
+                            <div class="flex justify-between items-start">
+                                <div><h3 class="text-xl font-bold text-gray-800">${config.icon} ${config.title}</h3></div>
+                                <div class="text-right"><p id="${pillarKey}_score" class="text-3xl font-bold" style="color: ${config.hex}">0</p></div>
+                            </div>
+                            <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+                                <div id="${pillarKey}_score_bar" class="h-2 rounded-full score-bar" style="width: 0%; background-color: ${config.hex}"></div>
+                            </div>
+                        </div>`;
+                 }
+            }
+
+            function createScenarioControls() {
+                const container = document.getElementById('scenariosContainer');
+                container.innerHTML = '';
+                for (const key in improvementActions) {
+                    const policy = improvementActions[key];
+                    if (policy.relevant_for.includes(currentProjectState.type) || policy.relevant_for.includes('all')) {
+                         container.innerHTML += `<div class="flex items-center justify-between bg-gray-100 p-3 rounded-lg"><label for="scenario_${key}" class="text-sm font-medium text-gray-700">${policy.label}</label><label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="scenario_${key}" class="sr-only peer scenario-checkbox"><div class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#E5739D]"></div></label></div>`;
+                    }
+                }
+            }
+
+            function initializeChart() {
+                const ctx = document.getElementById('pillarChart').getContext('2d');
+                chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.values(pillarConfig).map(p => p.title.replace('Sustentabilidade ', '').replace(' do Trabalhador', '')),
+                        datasets: [{
+                            label: 'Pontuação',
+                            data: [0,0,0,0],
+                            backgroundColor: Object.values(pillarConfig).map(p => p.hex),
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                        scales: { x: { beginAtZero: true, max: 100 }, y: { ticks: { font: { size: 10 } } } },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }
+
+            function showPillarDetailsModal(pillarKey) {
+                const config = pillarConfig[pillarKey];
+                const { pillarScores } = calculateScores();
+                const currentScore = pillarScores[pillarKey];
+                
+                let modalHtml = `<h3 class="text-2xl font-bold main-title mb-4">${config.icon} ${config.title}</h3>`;
+                modalHtml += `<p class="text-gray-600 mb-4">A pontuação de <strong style="color: ${config.hex}">${currentScore}</strong> é baseada na análise e triangulação dos seguintes KPIs. Discrepâncias entre as fontes de dados podem indicar riscos ocultos.</p>`;
+                
+                const kpiAnalyticData = {};
+
+                for (const kpiKey in config.kpis) {
+                    const kpi = config.kpis[kpiKey];
+                    const baseValue = kpi.lower_is_better ? 100 - currentScore : currentScore;
+                    const companyData = Math.min(100, Math.max(0, baseValue + (Math.random() * 20 - 15)));
+                    const thirdPartyData = Math.min(100, Math.max(0, baseValue + (Math.random() * 10 - 5)));
+                    const publicData = Math.min(100, Math.max(0, baseValue + (Math.random() * 20 - 10)));
+                    const values = [companyData, thirdPartyData, publicData];
+                    const avg = values.reduce((a, b) => a + b, 0) / 3;
+                    const stdDev = Math.sqrt(values.map(x => Math.pow(x - avg, 2)).reduce((a, b) => a + b) / 3);
+                    
+                    let consistency = 'elevada';
+                    let consistencyIcon;
+                    if (stdDev > 20) {
+                        consistency = 'baixa';
+                        consistencyIcon = `<svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>`;
+                    } else if (stdDev > 10) {
+                        consistency = 'média';
+                        consistencyIcon = `<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clip-rule="evenodd"></path></svg>`;
+                    } else {
+                        consistencyIcon = `<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>`;
+                    }
+                    kpiAnalyticData[kpiKey] = { label: kpi.label, avg: avg, consistency: consistency, lower_is_better: kpi.lower_is_better };
+
+                    modalHtml += `
+                        <div class="mt-4 border-t pt-4">
+                            <div class="flex justify-between items-center"><h4 class="font-semibold text-gray-700">${kpi.label}</h4><div class="flex items-center text-sm text-gray-500">${consistencyIcon}<span class="ml-1">Consistência ${consistency}</span></div></div>
+                            <div class="mt-2 space-y-1 text-gray-600">
+                                <div class="kpi-data-point"><span>Dados da Empresa:</span> <div class="w-full bg-gray-200 rounded-full ml-2"><div class="kpi-bar bg-[#D4608A]" style="width: ${companyData}%"></div></div></div>
+                                <div class="kpi-data-point"><span>Dados de Terceiros:</span> <div class="w-full bg-gray-200 rounded-full ml-2"><div class="kpi-bar bg-[#E5739D]" style="width: ${thirdPartyData}%"></div></div></div>
+                                <div class="kpi-data-point"><span>Percepção Pública:</span> <div class="w-full bg-gray-200 rounded-full ml-2"><div class="kpi-bar bg-[#fbdde8]" style="width: ${publicData}%"></div></div></div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                const summaryText = generatePillarSummary(currentScore, kpiAnalyticData);
+                const summaryHtml = `<div class="mt-6 p-3 bg-gray-100 rounded-lg"><h4 class="font-bold main-title mb-2">Resumo da Análise da IA</h4><div class="text-sm text-gray-600">${summaryText}</div></div>`;
+
+                document.getElementById('pillarModalBody').innerHTML = modalHtml + summaryHtml;
+                document.getElementById('pillarModal').style.display = 'flex';
+            }
+
+            // --- EVENT HANDLERS ---
+            function handleSearch() {
+                const query = document.getElementById('searchInput').value;
+                const searchError = document.getElementById('searchError');
+                if (query.trim() === "") {
+                    searchError.textContent = "Por favor, descreva um projeto."; 
+                    searchError.style.display = 'block';
+                    return;
+                }
+
+                const { projectType, location } = parseSearchQuery(query);
+                if (!projectType || !location) {
+                    searchError.textContent = "Não foi possível identificar o projeto ou localização. Por favor, seja mais específico (ex: 'mineradora na amazônia').";
+                    searchError.style.display = 'block';
+                    return;
+                }
+                
+                searchError.style.display = 'none';
+                
+                setTimeout(() => {
+                    currentProjectState = { type: projectType, location: location, baseScores: generateBaseScores(projectType, location) };
+                    
+                    document.getElementById('resultsTitle').textContent = `Análise de Impacto para: "${query}"`;
+                    renderPillarCards();
+                    createScenarioControls();
+                    updateAllUI();
+                    renderAlternatives(generateAlternatives(calculateScores().pillarScores));
+
+                    document.getElementById('searchSection').style.display = 'none';
+                    const resultsContainer = document.getElementById('resultsContainer');
+                    resultsContainer.style.display = 'block';
+                    
+                    requestAnimationFrame(() => {
+                        resultsContainer.style.opacity = 1;
+                    });
+                }, 0);
+            }
+
+            function handleReset() {
+                 const resultsContainer = document.getElementById('resultsContainer');
+                 resultsContainer.style.opacity = 0;
+                 setTimeout(() => {
+                    resultsContainer.style.display = 'none';
+                    document.getElementById('searchSection').style.display = 'block';
+                    document.getElementById('searchInput').value = '';
+                 }, 500);
+            }
+            
+            function handleSimulateAlternative(e) {
+                const button = e.target.closest('.simulate-alt-button');
+                if (!button || button.disabled) return;
+                const type = button.dataset.type, value = button.dataset.value;
+
+                if (type === 'location') {
+                    currentProjectState.location = value;
+                    currentProjectState.baseScores = generateBaseScores(currentProjectState.type, value);
+                    document.getElementById('resultsTitle').textContent = `[SIMULAÇÃO] ${projectTypes[currentProjectState.type].name} em ${locationData[value].name}`;
+                    document.querySelectorAll('.scenario-checkbox').forEach(cb => cb.checked = false);
+                } else if (type === 'policy') {
+                    const checkbox = document.getElementById(`scenario_${value}`);
+                    if (checkbox) checkbox.checked = true;
+                }
+                updateAllUI();
+                renderAlternatives(generateAlternatives(calculateScores().pillarScores));
+            }
+
+            // --- INITIALIZATION ---
+            function init() {
+                initializeChart();
+                document.getElementById('searchButton').addEventListener('click', handleSearch);
+                document.getElementById('resetButton').addEventListener('click', handleReset);
+                
+                const resultsContainer = document.getElementById('resultsContainer');
+                resultsContainer.addEventListener('click', e => {
+                    if (e.target.closest('.simulate-alt-button')) handleSimulateAlternative(e);
+                    const pillarCard = e.target.closest('.pillar-card-clickable');
+                    if (pillarCard) showPillarDetailsModal(pillarCard.dataset.pillarKey);
+                });
+
+                resultsContainer.addEventListener('change', e => {
+                    if (e.target.matches('.scenario-checkbox')) {
+                        updateAllUI();
+                        renderAlternatives(generateAlternatives(calculateScores().pillarScores));
+                    }
+                });
+
+                document.getElementById('searchInput').addEventListener('keypress', e => { if (e.key === 'Enter') handleSearch(); });
+                
+                const modal = document.getElementById('pillarModal');
+                document.getElementById('modalCloseButton').addEventListener('click', () => modal.style.display = 'none');
+                window.addEventListener('click', e => { if (e.target == modal) modal.style.display = 'none'; });
+            }
+
+            init();
+        });
+    </script>
+</body>
+</html>
